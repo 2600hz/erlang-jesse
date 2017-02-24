@@ -380,7 +380,10 @@ check_properties(Value, Properties, State) ->
     = lists:foldl( fun({PropertyName, PropertySchema}, CurrentState) ->
                        case get_value(PropertyName, Value) of
                          ?not_found ->
-                           CurrentState;
+                           case get_value(?DEFAULT, PropertySchema) of
+                             ?not_found -> CurrentState;
+                             Default -> check_default(PropertyName, PropertySchema, Default, CurrentState)
+                           end;
                          Property ->
                            NewState = set_current_schema( CurrentState
                                                         , PropertySchema
@@ -956,28 +959,28 @@ check_format(Value, _Format = <<"date-time">>, State) when is_binary(Value) ->
 check_format(Value, _Format = <<"email">>, State) when is_binary(Value) ->
   case re:run(Value, <<"^[^@]+@[^@]+$">>, [{capture, none}, unicode]) of
     match   -> State;
-                       nomatch -> handle_data_invalid(?wrong_format, Value, State)
-                     end;
-                       check_format(Value, _Format = <<"hostname">>, State) when is_binary(Value) ->
+    nomatch -> handle_data_invalid(?wrong_format, Value, State)
+  end;
+check_format(Value, _Format = <<"hostname">>, State) when is_binary(Value) ->
   %% not yet supported
-                         State;
-                       check_format(Value, _Format = <<"ipv4">>, State) when is_binary(Value) ->
+  State;
+check_format(Value, _Format = <<"ipv4">>, State) when is_binary(Value) ->
   %% avoiding inet:parse_ipv4strict_address to maintain R15 compatibility
-                         case inet_parse:ipv4strict_address(binary_to_list(Value)) of
-                           {ok, _IPv4Address} -> State;
-                           {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
-                         end;
-                       check_format(Value, _Format = <<"ipv6">>, State) when is_binary(Value) ->
+  case inet_parse:ipv4strict_address(binary_to_list(Value)) of
+    {ok, _IPv4Address} -> State;
+    {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
+  end;
+check_format(Value, _Format = <<"ipv6">>, State) when is_binary(Value) ->
   %% avoiding inet:parse_ipv6strict_address to maintain R15 compatibility
-                         case inet_parse:ipv6strict_address(binary_to_list(Value)) of
-                           {ok, _IPv6Address} -> State;
-                           {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
-                         end;
-                       check_format(Value, _Format = <<"uri">>, State) when is_binary(Value) ->
+  case inet_parse:ipv6strict_address(binary_to_list(Value)) of
+    {ok, _IPv6Address} -> State;
+    {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
+  end;
+check_format(Value, _Format = <<"uri">>, State) when is_binary(Value) ->
   %% not yet supported
-                         State;
-                       check_format(_Value, _Format, State) ->
-                         State.
+  State;
+check_format(_Value, _Format, State) ->
+  State.
 
 %% @doc 5.1.1. multipleOf
 %%
@@ -1316,7 +1319,11 @@ compare_properties(Value1, Value2) ->
 %% Wrappers
 %% @private
 get_value(Key, Schema) ->
-  jesse_json_path:value(Key, Schema, ?not_found).
+  get_value(Key, Schema, ?not_found).
+
+%% @private
+get_value(Key, Schema, Default) ->
+  jesse_json_path:value(Key, Schema, Default).
 
 %% @private
 unwrap(Value) ->
@@ -1371,3 +1378,34 @@ check_external_validation(Value, State) ->
     undefined -> State;
     Fun -> Fun(Value, State)
   end.
+
+%% @private
+set_value(PropertyName, Value, State) ->
+  Path = lists:reverse([PropertyName] ++ jesse_state:get_current_path(State)),
+  jesse_state:set_value(State, Path, Value).
+
+-define(types_for_defaults, [ ?STRING
+                            , ?NUMBER
+                            , ?INTEGER
+                            , ?BOOLEAN
+                            , ?OBJECT
+                            ]).
+
+%% @private
+check_default(PropertyName, PropertySchema, Default, State) ->
+  Type = get_value(?TYPE, PropertySchema, ?not_found),
+  case Type =/= ?not_found
+    andalso lists:member(Type, ?types_for_defaults)
+    andalso is_type_valid(Default, Type) of
+    false -> State;
+    true -> set_default(PropertyName, PropertySchema, Default, State)
+  end.
+
+%% @private
+set_default(PropertyName, PropertySchema, Default, State) ->
+  State1 = set_value(PropertyName, Default, State),
+  case validate_schema(Default, PropertySchema, State1) of
+    {true, State4} -> State4;
+    _ -> State
+  end.
+>>>>>>> set default values for properties

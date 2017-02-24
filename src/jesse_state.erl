@@ -97,7 +97,7 @@ add_to_path(State, Item) ->
   State#state{current_path = [Item | CurrentPath]}.
 
 %% @doc Getter for `allowed_errors'.
--spec get_allowed_errors(State :: state()) -> jesse:allowed_errors().
+-spec get_allowed_errors(State :: state()) -> non_neg_integer() | 'infinity'.
 get_allowed_errors(#state{allowed_errors = AllowedErrors}) ->
   AllowedErrors.
 
@@ -191,7 +191,7 @@ remove_last_from_path(State = #state{current_path = [_Property | Path]}) ->
 
 %% @doc Setter for `allowed_errors'.
 -spec set_allowed_errors( State :: state()
-                        , AllowedErrors :: jesse:allowed_errors()
+                        , AllowedErrors :: non_neg_integer() | 'infinity'
                         ) -> state().
 set_allowed_errors(#state{} = State, AllowedErrors) ->
   State#state{allowed_errors = AllowedErrors}.
