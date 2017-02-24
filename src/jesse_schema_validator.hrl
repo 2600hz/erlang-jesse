@@ -122,6 +122,7 @@
 -define(not_schema_valid,            'not_schema_valid').
 -define(wrong_not_schema,            'wrong_not_schema').
 -define(external,                    'external').
+-define(not_in_enum,                 'not_in_enum').
 -define(external_error,              'external_error').
 
 %%

@@ -67,6 +67,7 @@
                     | ?wrong_size
                     | ?wrong_type
                     | ?external
+                    | ?not_in_enum
                     | ?external_error.
 
 -type data_error_type() :: data_error()
@@ -955,28 +956,28 @@ check_format(Value, _Format = <<"date-time">>, State) when is_binary(Value) ->
 check_format(Value, _Format = <<"email">>, State) when is_binary(Value) ->
   case re:run(Value, <<"^[^@]+@[^@]+$">>, [{capture, none}, unicode]) of
     match   -> State;
-    nomatch -> handle_data_invalid(?wrong_format, Value, State)
-  end;
-check_format(Value, _Format = <<"hostname">>, State) when is_binary(Value) ->
+                       nomatch -> handle_data_invalid(?wrong_format, Value, State)
+                     end;
+                       check_format(Value, _Format = <<"hostname">>, State) when is_binary(Value) ->
   %% not yet supported
-  State;
-check_format(Value, _Format = <<"ipv4">>, State) when is_binary(Value) ->
+                         State;
+                       check_format(Value, _Format = <<"ipv4">>, State) when is_binary(Value) ->
   %% avoiding inet:parse_ipv4strict_address to maintain R15 compatibility
-  case inet_parse:ipv4strict_address(binary_to_list(Value)) of
-    {ok, _IPv4Address} -> State;
-    {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
-  end;
-check_format(Value, _Format = <<"ipv6">>, State) when is_binary(Value) ->
+                         case inet_parse:ipv4strict_address(binary_to_list(Value)) of
+                           {ok, _IPv4Address} -> State;
+                           {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
+                         end;
+                       check_format(Value, _Format = <<"ipv6">>, State) when is_binary(Value) ->
   %% avoiding inet:parse_ipv6strict_address to maintain R15 compatibility
-  case inet_parse:ipv6strict_address(binary_to_list(Value)) of
-    {ok, _IPv6Address} -> State;
-    {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
-  end;
-check_format(Value, _Format = <<"uri">>, State) when is_binary(Value) ->
+                         case inet_parse:ipv6strict_address(binary_to_list(Value)) of
+                           {ok, _IPv6Address} -> State;
+                           {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
+                         end;
+                       check_format(Value, _Format = <<"uri">>, State) when is_binary(Value) ->
   %% not yet supported
-  State;
-check_format(_Value, _Format, State) ->
-  State.
+                         State;
+                       check_format(_Value, _Format, State) ->
+                         State.
 
 %% @doc 5.1.1. multipleOf
 %%

@@ -50,6 +50,7 @@
                     | ?wrong_size
                     | ?wrong_type
                     | ?external
+                    | ?not_in_enum
                     | ?external_error.
 
 -type data_error_type() :: data_error()
