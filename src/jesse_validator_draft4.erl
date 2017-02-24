@@ -78,8 +78,6 @@
                  , JsonSchema :: jesse:json_term()
                  , State      :: jesse_state:state()
                  ) -> jesse_state:state() | no_return().
-check_value(Value, [{?REF, RefSchemaURI} | _Attrs], State) ->
-  validate_ref(Value, RefSchemaURI, State);
 check_value(Value, [{?TYPE, Type} | Attrs], State) ->
   NewState = check_type(Value, Type, State),
   check_value(Value, Attrs, NewState);
@@ -114,7 +112,7 @@ check_value( Value
                                                    , State
                                                    );
                false -> State
-       end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?ITEMS, Items} | Attrs], State) ->
   NewState = case jesse_lib:is_array(Value) of
@@ -205,7 +203,7 @@ check_value(Value, [{?MINLENGTH, MinLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
                true  -> check_min_length(Value, MinLength, State);
                false -> State
-  end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?MAXLENGTH, MaxLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
@@ -251,6 +249,9 @@ check_value(Value, [{?NOT, Schema} | Attrs], State) ->
   check_value(Value, Attrs, NewState);
 check_value(Value, [], State) ->
   maybe_external_check_value(Value, State);
+check_value(Value, [{?REF, RefSchemaURI} | Attrs], State) ->
+  NewState = validate_ref(Value, RefSchemaURI, State),
+  check_value(Value, Attrs, NewState);
 check_value(Value, [_Attr | Attrs], State) ->
   check_value(Value, Attrs, State).
 
@@ -581,12 +582,12 @@ check_items_array(Value, Items, State) ->
 %% @private
 check_items_fun(Tuples, State) ->
   {_, TmpState} = lists:foldl( fun({Item, Schema}, {Index, CurrentState}) ->
-                                 NewState = set_current_schema( CurrentState
-                                                              , Schema
-                                                              ),
-                                 { Index + 1
-                                 , check_value(Index, Item, Schema, NewState)
-                                 }
+                                   NewState = set_current_schema( CurrentState
+                                                                , Schema
+                                                                ),
+                                   { Index + 1
+                                   , check_value(Index, Item, Schema, NewState)
+                                   }
                                end
                              , {0, State}
                              , Tuples
@@ -665,19 +666,19 @@ check_dependency(Value, Dependency, State)
       State
   end;
 check_dependency(_Value, _Dependency, State) ->
-    handle_schema_invalid(?invalid_dependency, State).
+  handle_schema_invalid(?invalid_dependency, State).
 
 %% @private
 check_dependency_array(Value, DependencyName, Dependency, State) ->
   lists:foldl( fun(PropertyName, CurrentState) ->
                    case get_value(DependencyName, Value) of
-                       ?not_found ->
-                         CurrentState;
-                       _Exists ->
-                         check_dependency( Value
-                                         , PropertyName
-                                         , CurrentState
-                                         )
+                     ?not_found ->
+                       CurrentState;
+                     _Exists ->
+                       check_dependency( Value
+                                       , PropertyName
+                                       , CurrentState
+                                       )
                    end
                end
              , State
@@ -1045,10 +1046,10 @@ check_required_values(Value, [PropertyName | Required], State) ->
 %% @private
 check_max_properties(Value, MaxProperties, State)
   when is_integer(MaxProperties), MaxProperties >= 0 ->
-    case length(unwrap(Value)) =< MaxProperties of
-      true  -> State;
-      false -> handle_data_invalid(?too_many_properties, Value, State)
-    end;
+  case length(unwrap(Value)) =< MaxProperties of
+    true  -> State;
+    false -> handle_data_invalid(?too_many_properties, Value, State)
+  end;
 check_max_properties(_Value, _MaxProperties, State) ->
   handle_schema_invalid(?wrong_max_properties, State).
 
@@ -1072,10 +1073,10 @@ check_max_properties(_Value, _MaxProperties, State) ->
 %% @private
 check_min_properties(Value, MinProperties, State)
   when is_integer(MinProperties), MinProperties >= 0 ->
-    case length(unwrap(Value)) >= MinProperties of
-      true  -> State;
-      false -> handle_data_invalid(?too_few_properties, Value, State)
-    end;
+  case length(unwrap(Value)) >= MinProperties of
+    true  -> State;
+    false -> handle_data_invalid(?too_few_properties, Value, State)
+  end;
 check_min_properties(_Value, _MaxProperties, State) ->
   handle_schema_invalid(?wrong_min_properties, State).
 
@@ -1134,10 +1135,10 @@ check_any_of_(Value, [], State) ->
 check_any_of_(Value, [Schema | Schemas], State) ->
   case validate_schema(Value, Schema, State) of
     {true, NewState} ->
-        case jesse_state:get_error_list(NewState) of
-            [] -> NewState;
-            _  -> check_any_of_(Value, Schemas, State)
-        end;
+      case jesse_state:get_error_list(NewState) of
+        [] -> NewState;
+        _  -> check_any_of_(Value, Schemas, State)
+      end;
     {false, _} -> check_any_of_(Value, Schemas, State)
   end.
 
@@ -1171,10 +1172,10 @@ check_one_of_(Value, _Schemas, State, Valid) when Valid > 1 ->
 check_one_of_(Value, [Schema | Schemas], State, Valid) ->
   case validate_schema(Value, Schema, State) of
     {true, NewState} ->
-        case jesse_state:get_error_list(NewState) of
-            [] -> check_one_of_(Value, Schemas, NewState, Valid + 1);
-            _  -> check_one_of_(Value, Schemas, State, Valid)
-        end;
+      case jesse_state:get_error_list(NewState) of
+        [] -> check_one_of_(Value, Schemas, NewState, Valid + 1);
+        _  -> check_one_of_(Value, Schemas, State, Valid)
+      end;
     {false, _} ->
       check_one_of_(Value, Schemas, State, Valid)
   end.

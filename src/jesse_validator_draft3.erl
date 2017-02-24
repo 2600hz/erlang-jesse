@@ -61,8 +61,6 @@
                  , JsonSchema :: jesse:json_term()
                  , State      :: jesse_state:state()
                  ) -> jesse_state:state() | no_return().
-check_value(Value, [{?REF, RefSchemaURI} | _Attrs], State) ->
-  validate_ref(Value, RefSchemaURI, State);
 check_value(Value, [{?TYPE, Type} | Attrs], State) ->
   NewState = check_type(Value, Type, State),
   check_value(Value, Attrs, NewState);
@@ -97,7 +95,7 @@ check_value( Value
                                                    , State
                                                    );
                false -> State
-       end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?ITEMS, Items} | Attrs], State) ->
   NewState = case jesse_lib:is_array(Value) of
@@ -186,7 +184,7 @@ check_value(Value, [{?MINLENGTH, MinLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
                true  -> check_min_length(Value, MinLength, State);
                false -> State
-  end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?MAXLENGTH, MaxLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
@@ -214,6 +212,9 @@ check_value(Value, [{?EXTENDS, Extends} | Attrs], State) ->
   check_value(Value, Attrs, NewState);
 check_value(Value, [], State) ->
   maybe_external_check_value(Value, State);
+check_value(Value, [{?REF, RefSchemaURI} | Attrs], State) ->
+  NewState = validate_ref(Value, RefSchemaURI, State),
+  check_value(Value, Attrs, NewState);
 check_value(Value, [_Attr | Attrs], State) ->
   check_value(Value, Attrs, State).
 
@@ -347,18 +348,18 @@ check_properties(Value, Properties, State) ->
     = lists:foldl( fun({PropertyName, PropertySchema}, CurrentState) ->
                        case get_value(PropertyName, Value) of
                          ?not_found ->
-%% @doc 5.7.  required
-%%
-%% This attribute indicates if the instance must have a value, and not
-%% be undefined.  This is false by default, making the instance
-%% optional.
-%% @end
+                           %% @doc 5.7.  required
+                           %%
+                           %% This attribute indicates if the instance must have a value, and not
+                           %% be undefined.  This is false by default, making the instance
+                           %% optional.
+                           %% @end
                            case get_value(?REQUIRED, PropertySchema) of
                              true ->
                                handle_data_invalid( {?missing_required_property
-                                                     , PropertyName}
-                                                   , Value
-                                                   , CurrentState);
+                                                    , PropertyName}
+                                                  , Value
+                                                  , CurrentState);
                              _    ->
                                CurrentState
                            end;
@@ -540,13 +541,13 @@ check_items_array(Value, Items, State) ->
   NExtra = length(Value) - length(Items),
   case NExtra > 0 of
     true ->
-%% @doc 5.6.  additionalItems
-%%
-%% This provides a definition for additional items in an array instance
-%% when tuple definitions of the items is provided.  This can be false
-%% to indicate additional items in the array are not allowed, or it can
-%% be a schema that defines the schema of the additional items.
-%% @end
+      %% @doc 5.6.  additionalItems
+      %%
+      %% This provides a definition for additional items in an array instance
+      %% when tuple definitions of the items is provided.  This can be false
+      %% to indicate additional items in the array are not allowed, or it can
+      %% be a schema that defines the schema of the additional items.
+      %% @end
       case get_value(?ADDITIONALITEMS, JsonSchema) of
         ?not_found -> State;
         true       -> State;
@@ -570,12 +571,12 @@ check_items_array(Value, Items, State) ->
 %% @private
 check_items_fun(Tuples, State) ->
   {_, TmpState} = lists:foldl( fun({Item, Schema}, {Index, CurrentState}) ->
-                                 NewState = set_current_schema( CurrentState
-                                                              , Schema
-                                                              ),
-                                 { Index + 1
-                                 , check_value(Index, Item, Schema, NewState)
-                                 }
+                                   NewState = set_current_schema( CurrentState
+                                                                , Schema
+                                                                ),
+                                   { Index + 1
+                                   , check_value(Index, Item, Schema, NewState)
+                                   }
                                end
                              , {0, State}
                              , Tuples
@@ -660,13 +661,13 @@ check_dependency_array(Value, DependencyName, Dependency, State) ->
 %% when the type of the instance value is a number.
 %% @private
 check_minimum(Value, Minimum, ExclusiveMinimum, State) ->
-%% @doc 5.11.  exclusiveMinimum
-%%
-%% This attribute indicates if the value of the instance (if the
-%% instance is a number) can not equal the number defined by the
-%% "minimum" attribute.  This is false by default, meaning the instance
-%% value can be greater then or equal to the minimum value.
-%% @end
+  %% @doc 5.11.  exclusiveMinimum
+  %%
+  %% This attribute indicates if the value of the instance (if the
+  %% instance is a number) can not equal the number defined by the
+  %% "minimum" attribute.  This is false by default, meaning the instance
+  %% value can be greater then or equal to the minimum value.
+  %% @end
   Result = case ExclusiveMinimum of
              true -> Value > Minimum;
              _    -> Value >= Minimum
@@ -683,13 +684,13 @@ check_minimum(Value, Minimum, ExclusiveMinimum, State) ->
 %% when the type of the instance value is a number.
 %% @private
 check_maximum(Value, Maximum, ExclusiveMaximum, State) ->
-%% @doc 5.12.  exclusiveMaximum
-%%
-%% This attribute indicates if the value of the instance (if the
-%% instance is a number) can not equal the number defined by the
-%% "maximum" attribute.  This is false by default, meaning the instance
-%% value can be less then or equal to the maximum value.
-%% @end
+  %% @doc 5.12.  exclusiveMaximum
+  %%
+  %% This attribute indicates if the value of the instance (if the
+  %% instance is a number) can not equal the number defined by the
+  %% "maximum" attribute.  This is false by default, meaning the instance
+  %% value can be less then or equal to the maximum value.
+  %% @end
   Result = case ExclusiveMaximum of
              true -> Value < Maximum;
              _    -> Value =< Maximum
@@ -742,7 +743,7 @@ check_max_items(Value, _MaxItems, State) ->
 %% </ul>
 %% @private
 check_unique_items([], true, State) ->
-    State;
+  State;
 check_unique_items(Value, true, State) ->
   try
     lists:foldl( fun(_Item, []) ->
@@ -859,7 +860,7 @@ check_disallow(Value, Disallow, State) ->
                                               , DefaultSchemaVer
                                               }]),
   try check_type(Value, Disallow, CheckTypeState) of
-    _ -> handle_data_invalid(?not_allowed, Value, State)
+      _ -> handle_data_invalid(?not_allowed, Value, State)
   catch
     %% FIXME: don't like to have these error related macros
     %% here.
