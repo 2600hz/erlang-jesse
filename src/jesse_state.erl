@@ -265,7 +265,7 @@ load_local_schema(Schema, [Key | Keys]) ->
         true ->
           %% avoiding binary_to_integer to maintain R15 compatibility
           try list_to_integer(binary_to_list(Key)) of
-            Index ->
+              Index ->
               SubSchema = lists:nth(Index + 1, Schema),
               load_local_schema(SubSchema, Keys)
           catch
@@ -354,7 +354,7 @@ raw_canonical_path(Path) ->
 %% @doc Return a raw canonical path.
 %% @private
 raw_canonical_path2([], Acc) ->
-    lists:reverse(Acc);
+  lists:reverse(Acc);
 raw_canonical_path2([H|T], Acc) ->
   case H of
     "." ->
@@ -369,20 +369,20 @@ raw_canonical_path2([H|T], Acc) ->
 -spec load_schema( State :: state()
                  , SchemaURI :: string() | binary()
                  ) -> jesse:schema()
-                    | ?not_found.
+                        | ?not_found.
 load_schema(State, SchemaURI) when is_binary(SchemaURI) ->
   load_schema(State, unicode:characters_to_list(SchemaURI));
 load_schema(#state{schema_loader_fun = LoaderFun}, SchemaURI) ->
   try LoaderFun(SchemaURI) of
       {ok, Schema} ->
-        Schema;
+      Schema;
       Schema ->
-        case jesse_lib:is_json_object(Schema) of
-          true ->
-            Schema;
-          false ->
-            ?not_found
-        end
+      case jesse_lib:is_json_object(Schema) of
+        true ->
+          Schema;
+        false ->
+          ?not_found
+      end
   catch
     _C:_E ->
       %% io:format("load_schema: ~p\n", [{_C, _E, erlang:get_stacktrace()}]),
