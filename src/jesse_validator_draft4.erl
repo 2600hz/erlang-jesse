@@ -66,7 +66,8 @@
                     | ?wrong_length
                     | ?wrong_size
                     | ?wrong_type
-                    | ?external.
+                    | ?external
+                    | ?external_error.
 
 -type data_error_type() :: data_error()
                          | {data_error(), binary()}.
@@ -247,11 +248,11 @@ check_value(Value, [{?ONEOF, Schemas} | Attrs], State) ->
 check_value(Value, [{?NOT, Schema} | Attrs], State) ->
   NewState = check_not(Value, Schema, State),
   check_value(Value, Attrs, NewState);
-check_value(Value, [], State) ->
-  maybe_external_check_value(Value, State);
 check_value(Value, [{?REF, RefSchemaURI} | Attrs], State) ->
   NewState = validate_ref(Value, RefSchemaURI, State),
   check_value(Value, Attrs, NewState);
+check_value(Value, [], State) ->
+  check_external_validation(Value, State);
 check_value(Value, [_Attr | Attrs], State) ->
   check_value(Value, Attrs, State).
 
@@ -1364,10 +1365,8 @@ valid_datetime(DateTimeBin) ->
       false
   end.
 
-maybe_external_check_value(Value, State) ->
-  case jesse_state:get_external_validator(State) of
-    undefined ->
-      State;
-    Fun ->
-      Fun(Value, State)
+check_external_validation(Value, State) ->
+  case jesse_state:get_extra_validator(State) of
+    undefined -> State;
+    Fun -> Fun(Value, State)
   end.
