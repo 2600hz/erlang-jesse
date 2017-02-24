@@ -47,7 +47,9 @@
                     | ?not_in_range
                     | ?wrong_length
                     | ?wrong_size
-                    | ?wrong_type.
+                    | ?wrong_type
+                    | ?not_in_enum
+                    | ?external_error.
 
 -type data_error_type() :: data_error()
                          | {data_error(), binary()}.
@@ -208,13 +210,11 @@ check_value(Value, [{?DISALLOW, Disallow} | Attrs], State) ->
 check_value(Value, [{?EXTENDS, Extends} | Attrs], State) ->
   NewState = check_extends(Value, Extends, State),
   check_value(Value, Attrs, NewState);
-check_value(Value, [{?REF, RefSchemaURI}], State) ->
-  {NewState0, Schema} = resolve_ref(RefSchemaURI, State),
-  NewState =
-    jesse_schema_validator:validate_with_state(Schema, Value, NewState0),
-  undo_resolve_ref(NewState, State);
-check_value(_Value, [], State) ->
-  State;
+check_value(Value, [{?REF, RefSchemaURI} | Attrs], State) ->
+  NewState = validate_ref(Value, RefSchemaURI, State),
+  check_value(Value, Attrs, NewState);
+check_value(Value, [], State) ->
+  check_external_validation(Value, State);
 check_value(Value, [_Attr | Attrs], State) ->
   check_value(Value, Attrs, State).
 
@@ -348,21 +348,26 @@ check_properties(Value, Properties, State) ->
     = lists:foldl( fun({PropertyName, PropertySchema}, CurrentState) ->
                        case get_value(PropertyName, Value) of
                          ?not_found ->
-%% @doc 5.7.  required
-%%
-%% This attribute indicates if the instance must have a value, and not
-%% be undefined.  This is false by default, making the instance
-%% optional.
-%% @end
-                           case get_value(?REQUIRED, PropertySchema) of
-                             true ->
-                               handle_data_invalid( {?missing_required_property
-                                                     , PropertyName}
-                                                   , Value
-                                                   , CurrentState);
-                             _    ->
-                               CurrentState
-                           end;
+                             case get_value(?DEFAULT, PropertySchema) of
+                                 ?not_found -> check_required( PropertySchema
+                                                             , PropertyName
+                                                             , Value
+                                                             , CurrentState
+                                                             );
+                                 Default ->
+                                     ValueState = set_value( PropertyName
+                                                           , Default
+                                                           , CurrentState
+                                                           ),
+                                     NewState = set_current_schema( ValueState
+                                                                  , PropertySchema
+                                                                  ),                                     
+                                     check_value( PropertyName
+                                                , Default
+                                                , PropertySchema
+                                                , NewState
+                                                )
+                             end;
                          Property ->
                            NewState = set_current_schema( CurrentState
                                                         , PropertySchema
@@ -582,6 +587,24 @@ check_items_fun(Tuples, State) ->
                              , Tuples
                              ),
   set_current_schema(TmpState, get_current_schema(State)).
+
+
+%% @doc 5.7.  required
+%%
+%% This attribute indicates if the instance must have a value, and not
+%% be undefined.  This is false by default, making the instance
+%% optional.
+%% @private
+check_required(PropertySchema, PropertyName, Value, CurrentState) ->
+    case get_value(?REQUIRED, PropertySchema) of
+        true ->
+            handle_data_invalid( {?missing_required_property
+                                  , PropertyName}
+                                 , Value
+                                 , CurrentState);
+        _    ->
+            CurrentState
+    end.
 
 %% @doc 5.8.  dependencies
 %%
@@ -824,7 +847,7 @@ check_enum(Value, Enum, State) ->
   case IsValid of
     true  -> State;
     false ->
-      handle_data_invalid(?not_in_range, Value, State)
+      handle_data_invalid(?not_in_enum, Value, State)
   end.
 
 check_format(_Value, _Format, State) ->
@@ -897,6 +920,12 @@ check_extends_array(Value, Extends, State) ->
              , State
              , Extends
              ).
+
+%% @private
+validate_ref(Value, Reference, State) ->
+  {NewState, Schema} = resolve_ref(Reference, State),
+  ResultState = jesse_schema_validator:validate_with_state(Schema, Value, NewState),
+  undo_resolve_ref(ResultState, State).
 
 %% @private
 resolve_ref(Reference, State) ->
@@ -1014,3 +1043,15 @@ add_to_path(State, Property) ->
 %% @private
 remove_last_from_path(State) ->
   jesse_state:remove_last_from_path(State).
+
+%% @private
+check_external_validation(Value, State) ->
+    case jesse_state:get_extra_validator(State) of
+        undefined -> State;
+        Fun -> Fun(Value, State)
+    end.
+
+%% @private
+set_value(PropertyName, Value, State) ->
+    Path = lists:reverse([PropertyName] ++ jesse_state:get_current_path(State)),
+    jesse_state:set_value(State, Path, Value).

@@ -55,6 +55,7 @@
 -define(MULTIPLEOF,           <<"multipleOf">>).
 -define(MAXPROPERTIES,        <<"maxProperties">>).
 -define(MINPROPERTIES,        <<"minProperties">>).
+-define(DEFAULT,              <<"default">>).
 
 %% Constant definitions for Json types
 -define(ANY,                  <<"any">>).
@@ -112,6 +113,8 @@
 -define(not_one_schema_valid,        'not_one_schema_valid').
 -define(not_schema_valid,            'not_schema_valid').
 -define(wrong_not_schema,            'wrong_not_schema').
+-define(not_in_enum,                 'not_in_enum').
+-define(external_error,              'external_error').
 
 %%
 -define(not_found, not_found).
