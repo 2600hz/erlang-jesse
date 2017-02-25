@@ -377,32 +377,20 @@ check_properties(Value, Properties, State) ->
   TmpState
     = lists:foldl( fun({PropertyName, PropertySchema}, CurrentState) ->
                        case get_value(PropertyName, Value) of
-                         ?not_found ->
-                             case get_value(?DEFAULT, PropertySchema) of
-                                 ?not_found -> CurrentState;
-                                 Default ->
-                                     ValueState = set_value( PropertyName
-                                                           , Default
-                                                           , CurrentState
-                                                           ),
-                                     NewState = set_current_schema( ValueState
-                                                                  , PropertySchema
-                                                                  ),                                     
-                                     check_value( PropertyName
-                                                , Default
-                                                , PropertySchema
-                                                , NewState
-                                                )
-                             end;
-                         Property ->
-                           NewState = set_current_schema( CurrentState
-                                                        , PropertySchema
-                                                        ),
-                           check_value( PropertyName
-                                      , Property
-                                      , PropertySchema
-                                      , NewState
-                                      )
+                           ?not_found ->
+                               case get_value(?DEFAULT, PropertySchema) of
+                                   ?not_found -> CurrentState;
+                                   Default -> check_default(PropertyName, PropertySchema, Default, CurrentState)
+                               end;
+                           Property ->
+                               NewState = set_current_schema( CurrentState
+                                                            , PropertySchema
+                                                            ),
+                               check_value( PropertyName
+                                          , Property
+                                          , PropertySchema
+                                          , NewState
+                                          )
                        end
                    end
                  , State
@@ -1319,7 +1307,11 @@ compare_properties(Value1, Value2) ->
 %% Wrappers
 %% @private
 get_value(Key, Schema) ->
-  jesse_json_path:value(Key, Schema, ?not_found).
+  get_value(Key, Schema, ?not_found).
+
+%% @private
+get_value(Key, Schema, Default) ->
+  jesse_json_path:value(Key, Schema, Default).
 
 %% @private
 unwrap(Value) ->
@@ -1379,3 +1371,20 @@ check_external_validation(Value, State) ->
 set_value(PropertyName, Value, State) ->
     Path = lists:reverse([PropertyName] ++ jesse_state:get_current_path(State)),
     jesse_state:set_value(State, Path, Value).
+
+%% @private
+check_default(PropertyName, PropertySchema, Default, State) ->
+    Type = get_value(?TYPE, PropertySchema, ?OBJECT),
+    case is_type_valid(Default, Type) of
+        false -> false;
+        true ->
+            State0 = jesse_state:set_error_list(State, []),
+            State1 = set_value(PropertyName, Default, State0),
+            State2 = set_current_schema(State1, PropertySchema),
+            State3 = jesse_state:set_allowed_errors(State2, 'infinity'),
+            State4 = check_value(PropertyName, Default, PropertySchema, State3),
+            case jesse_state:get_error_list(State4) of
+                [] -> State4;
+                _ -> State
+            end
+    end.
