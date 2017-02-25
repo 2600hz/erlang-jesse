@@ -210,9 +210,8 @@ check_value(Value, [{?DISALLOW, Disallow} | Attrs], State) ->
 check_value(Value, [{?EXTENDS, Extends} | Attrs], State) ->
   NewState = check_extends(Value, Extends, State),
   check_value(Value, Attrs, NewState);
-check_value(Value, [{?REF, RefSchemaURI} | Attrs], State) ->
-  NewState = validate_ref(Value, RefSchemaURI, State),
-  check_value(Value, Attrs, NewState);
+check_value(Value, [{?REF, RefSchemaURI}], State) ->
+  validate_ref(Value, RefSchemaURI, State);
 check_value(Value, [], State) ->
   check_external_validation(Value, State);
 check_value(Value, [_Attr | Attrs], State) ->
@@ -1048,19 +1047,32 @@ set_value(PropertyName, Value, State) ->
     Path = lists:reverse([PropertyName] ++ jesse_state:get_current_path(State)),
     jesse_state:set_value(State, Path, Value).
 
+-define(types_for_defaults, [ ?STRING
+                            , ?NUMBER
+                            , ?INTEGER
+                            , ?BOOLEAN
+%%                            , ?OBJECT
+%% exclude because of weird recursion test
+                            ]).
+
 %% @private
 check_default(PropertyName, PropertySchema, Default, State) ->
-    Type = get_value(?TYPE, PropertySchema, ?OBJECT),
-    case is_type_valid(Default, Type, State) of
-        false -> false;
-        true ->
-            State0 = jesse_state:set_error_list(State, []),
-            State1 = set_value(PropertyName, Default, State0),
-            State2 = set_current_schema(State1, PropertySchema),
-            State3 = jesse_state:set_allowed_errors(State2, 'infinity'),
-            State4 = check_value(PropertyName, Default, PropertySchema, State3),
-            case jesse_state:get_error_list(State4) of
-                [] -> State4;
-                _ -> State
-            end
+    Type = get_value(?TYPE, PropertySchema, ?not_found),
+    case Type =/= ?not_found
+         andalso lists:member(Type, ?types_for_defaults)
+         andalso is_type_valid(Default, Type, State) of
+        false -> State;
+        true -> set_default(PropertyName, PropertySchema, Default, State)
+    end.
+
+%% @private
+set_default(PropertyName, PropertySchema, Default, State) ->
+    State0 = jesse_state:set_error_list(State, []),
+    State1 = set_value(PropertyName, Default, State0),
+    State2 = set_current_schema(State1, PropertySchema),
+    State3 = jesse_state:set_allowed_errors(State2, 'infinity'),
+    State4 = check_value(PropertyName, Default, PropertySchema, State3),
+    case jesse_state:get_error_list(State4) of
+        [] -> State4;
+        _ -> State
     end.
