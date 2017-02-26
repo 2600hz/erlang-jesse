@@ -31,6 +31,7 @@
 -include("jesse_schema_validator.hrl").
 
 -type schema_error() :: ?wrong_type_dependency
+                      | ?schema_invalid
                       | ?wrong_type_items.
 
 -type schema_error_type() :: schema_error()
@@ -1052,8 +1053,24 @@ set_value(PropertyName, Value, State) ->
                             , ?NUMBER
                             , ?INTEGER
                             , ?BOOLEAN
-%%                            , ?OBJECT
-%% exclude because of weird recursion test
+                            , ?OBJECT
+                            ]).
+
+%% @private
+check_default(PropertyName, PropertySchema, Default, State) ->
+    Type = get_value(?TYPE, PropertySchema, ?not_found),
+    case Type =/= ?not_found
+         andalso lists:member(Type, ?types_for_defaults)
+         andalso is_type_valid(Default, Type, State) of
+        false -> State;
+        true -> set_default(PropertyName, PropertySchema, Default, State)
+    end.
+
+-define(types_for_defaults, [ ?STRING
+                            , ?NUMBER
+                            , ?INTEGER
+                            , ?BOOLEAN
+                            , ?OBJECT
                             ]).
 
 %% @private
@@ -1068,12 +1085,29 @@ check_default(PropertyName, PropertySchema, Default, State) ->
 
 %% @private
 set_default(PropertyName, PropertySchema, Default, State) ->
-    State0 = jesse_state:set_error_list(State, []),
-    State1 = set_value(PropertyName, Default, State0),
-    State2 = set_current_schema(State1, PropertySchema),
-    State3 = jesse_state:set_allowed_errors(State2, 'infinity'),
-    State4 = check_value(PropertyName, Default, PropertySchema, State3),
-    case jesse_state:get_error_list(State4) of
-        [] -> State4;
+    State1 = set_value(PropertyName, Default, State),
+    Schema = jesse_state:get_current_schema(State1),
+    case Schema =/= PropertySchema andalso validate_schema(Default, PropertySchema, State1) of
+        {true, State4} -> State4;
         _ -> State
     end.
+
+%% @doc Validate a value against a schema in a given state.
+%% Used by all combinators to run validation on a schema.
+%% @private
+validate_schema(Value, Schema, State0) ->
+  try
+    case jesse_lib:is_json_object(Schema) of
+      true ->
+        State1 = set_current_schema(State0, Schema),
+        State2 = jesse_schema_validator:validate_with_state( Schema
+                                                           , Value
+                                                           , State1
+                                                           ),
+        {true, State2};
+      false ->
+        handle_schema_invalid(?schema_invalid, State0)
+    end
+  catch
+    throw:Errors -> {false, Errors}
+  end.

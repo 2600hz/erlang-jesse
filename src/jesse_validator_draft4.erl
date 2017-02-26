@@ -1376,8 +1376,7 @@ set_value(PropertyName, Value, State) ->
                             , ?NUMBER
                             , ?INTEGER
                             , ?BOOLEAN
-%%                            , ?OBJECT
-%% exclude because of weird recursion test
+                            , ?OBJECT
                             ]).
 
 %% @private
@@ -1392,11 +1391,9 @@ check_default(PropertyName, PropertySchema, Default, State) ->
 
 %% @private
 set_default(PropertyName, PropertySchema, Default, State) ->
-    State0 = jesse_state:set_error_list(State, []),
-    State1 = set_value(PropertyName, Default, State0),
-    State2 = set_current_schema(State1, PropertySchema),
-    State3 = check_value(PropertyName, Default, PropertySchema, State2),
-    case jesse_state:get_error_list(State3) of
-        [] -> State3;
+    io:format(user, "~n~nP => ~p , D => ~p, S => ~p~n~n",[PropertyName, Default, PropertySchema]),
+    State1 = set_value(PropertyName, Default, State),
+    case validate_schema(Default, PropertySchema, State1) of
+        {true, State4} -> State4;
         _ -> State
     end.
