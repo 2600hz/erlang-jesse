@@ -1375,7 +1375,7 @@ set_value(PropertyName, Value, State) ->
                             , ?NUMBER
                             , ?INTEGER
                             , ?BOOLEAN
-%%                            , ?OBJECT
+                            , ?OBJECT
 %% exclude because of weird recursion test
                             ]).
 
@@ -1394,9 +1394,8 @@ set_default(PropertyName, PropertySchema, Default, State) ->
     State0 = jesse_state:set_error_list(State, []),
     State1 = set_value(PropertyName, Default, State0),
     State2 = set_current_schema(State1, PropertySchema),
-    State3 = jesse_state:set_allowed_errors(State2, 'infinity'),
-    State4 = check_value(PropertyName, Default, PropertySchema, State3),
-    case jesse_state:get_error_list(State4) of
-        [] -> State4;
+    State3 = check_value(PropertyName, Default, PropertySchema, State2),
+    case jesse_state:get_error_list(State3) of
+        [] -> State3;
         _ -> State
     end.
