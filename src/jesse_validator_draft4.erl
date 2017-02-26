@@ -247,8 +247,9 @@ check_value(Value, [{?ONEOF, Schemas} | Attrs], State) ->
 check_value(Value, [{?NOT, Schema} | Attrs], State) ->
     NewState = check_not(Value, Schema, State),
     check_value(Value, Attrs, NewState);
-check_value(Value, [{?REF, RefSchemaURI}], State) ->
-    validate_ref(Value, RefSchemaURI, State);
+check_value(Value, [{?REF, RefSchemaURI} | Attrs], State) ->
+    NewState = validate_ref(Value, RefSchemaURI, State),
+    check_value(Value, Attrs, NewState);
 check_value(Value, [], State) ->
     check_external_validation(Value, State);
 check_value(Value, [_Attr | Attrs], State) ->
@@ -1375,7 +1376,7 @@ set_value(PropertyName, Value, State) ->
                             , ?NUMBER
                             , ?INTEGER
                             , ?BOOLEAN
-                            , ?OBJECT
+%%                            , ?OBJECT
 %% exclude because of weird recursion test
                             ]).
 

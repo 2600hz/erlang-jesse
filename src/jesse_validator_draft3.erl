@@ -210,8 +210,9 @@ check_value(Value, [{?DISALLOW, Disallow} | Attrs], State) ->
 check_value(Value, [{?EXTENDS, Extends} | Attrs], State) ->
   NewState = check_extends(Value, Extends, State),
   check_value(Value, Attrs, NewState);
-check_value(Value, [{?REF, RefSchemaURI}], State) ->
-  validate_ref(Value, RefSchemaURI, State);
+check_value(Value, [{?REF, RefSchemaURI} | Attrs], State) ->
+  NewState = validate_ref(Value, RefSchemaURI, State),
+  check_value(Value, Attrs, NewState);
 check_value(Value, [], State) ->
   check_external_validation(Value, State);
 check_value(Value, [_Attr | Attrs], State) ->
