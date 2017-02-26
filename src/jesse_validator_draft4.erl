@@ -1391,7 +1391,6 @@ check_default(PropertyName, PropertySchema, Default, State) ->
 
 %% @private
 set_default(PropertyName, PropertySchema, Default, State) ->
-    io:format(user, "~n~nP => ~p , D => ~p, S => ~p~n~n",[PropertyName, Default, PropertySchema]),
     State1 = set_value(PropertyName, Default, State),
     case validate_schema(Default, PropertySchema, State1) of
         {true, State4} -> State4;

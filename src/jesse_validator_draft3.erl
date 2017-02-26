@@ -1066,23 +1066,6 @@ check_default(PropertyName, PropertySchema, Default, State) ->
         true -> set_default(PropertyName, PropertySchema, Default, State)
     end.
 
--define(types_for_defaults, [ ?STRING
-                            , ?NUMBER
-                            , ?INTEGER
-                            , ?BOOLEAN
-                            , ?OBJECT
-                            ]).
-
-%% @private
-check_default(PropertyName, PropertySchema, Default, State) ->
-    Type = get_value(?TYPE, PropertySchema, ?not_found),
-    case Type =/= ?not_found
-         andalso lists:member(Type, ?types_for_defaults)
-         andalso is_type_valid(Default, Type, State) of
-        false -> State;
-        true -> set_default(PropertyName, PropertySchema, Default, State)
-    end.
-
 %% @private
 set_default(PropertyName, PropertySchema, Default, State) ->
     State1 = set_value(PropertyName, Default, State),
