@@ -103,7 +103,7 @@ check_value( Value
                                                    , State
                                                    );
                false -> State
-       end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?ITEMS, Items} | Attrs], State) ->
   NewState = case jesse_lib:is_array(Value) of
@@ -192,7 +192,7 @@ check_value(Value, [{?MINLENGTH, MinLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
                true  -> check_min_length(Value, MinLength, State);
                false -> State
-  end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?MAXLENGTH, MaxLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
@@ -353,23 +353,25 @@ check_properties(Value, Properties, State) ->
     = lists:foldl( fun({PropertyName, PropertySchema}, CurrentState) ->
                        case get_value(PropertyName, Value) of
                          ?not_found ->
-%% @doc 5.7.  required
-%%
-%% This attribute indicates if the instance must have a value, and not
-%% be undefined.  This is false by default, making the instance
-%% optional.
-%% @end
-                           case get_value(?REQUIRED, PropertySchema) of
-                             true ->
-                               NewState = set_current_schema( CurrentState
-                                                            , PropertySchema
-                                                            ),
-                               handle_data_invalid( {?missing_required_property
-                                                     , PropertyName}
-                                                   , Value
-                                                   , NewState);
-                             _    ->
-                               CurrentState
+                           %% @doc 5.7.  required
+                           %%
+                           %% This attribute indicates if the instance must have a value, and not
+                           %% be undefined.  This is false by default, making the instance
+                           %% optional.
+                           %% @end
+                           case get_value(?DEFAULT, PropertySchema) of
+                             ?not_found ->
+                               check_required( PropertySchema
+                                             , PropertyName
+                                             , Value
+                                             , CurrentState
+                                             );
+                             Default ->
+                               check_default( PropertyName
+                                            , PropertySchema
+                                            , Default
+                                            , CurrentState
+                                            )
                            end;
                          Property ->
                            NewState = set_current_schema( CurrentState
@@ -549,13 +551,13 @@ check_items_array(Value, Items, State) ->
   NExtra = length(Value) - length(Items),
   case NExtra > 0 of
     true ->
-%% @doc 5.6.  additionalItems
-%%
-%% This provides a definition for additional items in an array instance
-%% when tuple definitions of the items is provided.  This can be false
-%% to indicate additional items in the array are not allowed, or it can
-%% be a schema that defines the schema of the additional items.
-%% @end
+      %% @doc 5.6.  additionalItems
+      %%
+      %% This provides a definition for additional items in an array instance
+      %% when tuple definitions of the items is provided.  This can be false
+      %% to indicate additional items in the array are not allowed, or it can
+      %% be a schema that defines the schema of the additional items.
+      %% @end
       case get_value(?ADDITIONALITEMS, JsonSchema) of
         ?not_found -> State;
         true       -> State;
@@ -579,17 +581,35 @@ check_items_array(Value, Items, State) ->
 %% @private
 check_items_fun(Tuples, State) ->
   {_, TmpState} = lists:foldl( fun({Item, Schema}, {Index, CurrentState}) ->
-                                 NewState = set_current_schema( CurrentState
-                                                              , Schema
-                                                              ),
-                                 { Index + 1
-                                 , check_value(Index, Item, Schema, NewState)
-                                 }
+                                   NewState = set_current_schema( CurrentState
+                                                                , Schema
+                                                                ),
+                                   { Index + 1
+                                   , check_value(Index, Item, Schema, NewState)
+                                   }
                                end
                              , {0, State}
                              , Tuples
                              ),
   set_current_schema(TmpState, get_current_schema(State)).
+
+
+%% @doc 5.7.  required
+%%
+%% This attribute indicates if the instance must have a value, and not
+%% be undefined.  This is false by default, making the instance
+%% optional.
+%% @private
+check_required(PropertySchema, PropertyName, Value, CurrentState) ->
+  case get_value(?REQUIRED, PropertySchema) of
+    true ->
+      handle_data_invalid( {?missing_required_property
+                           , PropertyName}
+                         , Value
+                         , CurrentState);
+    _    ->
+      CurrentState
+  end.
 
 %% @doc 5.8.  dependencies
 %%
@@ -669,13 +689,13 @@ check_dependency_array(Value, DependencyName, Dependency, State) ->
 %% when the type of the instance value is a number.
 %% @private
 check_minimum(Value, Minimum, ExclusiveMinimum, State) ->
-%% @doc 5.11.  exclusiveMinimum
-%%
-%% This attribute indicates if the value of the instance (if the
-%% instance is a number) can not equal the number defined by the
-%% "minimum" attribute.  This is false by default, meaning the instance
-%% value can be greater then or equal to the minimum value.
-%% @end
+  %% @doc 5.11.  exclusiveMinimum
+  %%
+  %% This attribute indicates if the value of the instance (if the
+  %% instance is a number) can not equal the number defined by the
+  %% "minimum" attribute.  This is false by default, meaning the instance
+  %% value can be greater then or equal to the minimum value.
+  %% @end
   Result = case ExclusiveMinimum of
              true -> Value > Minimum;
              _    -> Value >= Minimum
@@ -692,13 +712,13 @@ check_minimum(Value, Minimum, ExclusiveMinimum, State) ->
 %% when the type of the instance value is a number.
 %% @private
 check_maximum(Value, Maximum, ExclusiveMaximum, State) ->
-%% @doc 5.12.  exclusiveMaximum
-%%
-%% This attribute indicates if the value of the instance (if the
-%% instance is a number) can not equal the number defined by the
-%% "maximum" attribute.  This is false by default, meaning the instance
-%% value can be less then or equal to the maximum value.
-%% @end
+  %% @doc 5.12.  exclusiveMaximum
+  %%
+  %% This attribute indicates if the value of the instance (if the
+  %% instance is a number) can not equal the number defined by the
+  %% "maximum" attribute.  This is false by default, meaning the instance
+  %% value can be less then or equal to the maximum value.
+  %% @end
   Result = case ExclusiveMaximum of
              true -> Value < Maximum;
              _    -> Value =< Maximum
@@ -751,7 +771,7 @@ check_max_items(Value, _MaxItems, State) ->
 %% </ul>
 %% @private
 check_unique_items([], true, State) ->
-    State;
+  State;
 check_unique_items(Value, true, State) ->
   try
     lists:foldl( fun(_Item, []) ->
@@ -868,7 +888,7 @@ check_disallow(Value, Disallow, State) ->
                                               , DefaultSchemaVer
                                               }]),
   try check_type(Value, Disallow, CheckTypeState) of
-    _ -> handle_data_invalid(?not_allowed, Value, State)
+      _ -> handle_data_invalid(?not_allowed, Value, State)
   catch
     %% FIXME: don't like to have these error related macros
     %% here.
@@ -912,7 +932,8 @@ validate_ref(Value, Reference, State) ->
     {error, NewState} ->
       undo_resolve_ref(NewState, State);
     {ok, NewState, Schema} ->
-      ResultState = jesse_schema_validator:validate_with_state(Schema, Value, NewState),
+      ResultState =
+        jesse_schema_validator:validate_with_state(Schema, Value, NewState),
       undo_resolve_ref(ResultState, State)
   end.
 
@@ -1000,7 +1021,11 @@ compare_properties(Value1, Value2) ->
 %% Wrappers
 %% @private
 get_value(Key, Schema) ->
-  jesse_json_path:value(Key, Schema, ?not_found).
+  get_value(Key, Schema, ?not_found).
+
+%% @private
+get_value(Key, Schema, Default) ->
+  jesse_json_path:value(Key, Schema, Default).
 
 %% @private
 unwrap(Value) ->
@@ -1048,4 +1073,81 @@ maybe_external_check_value(Value, State) ->
       State;
     Fun ->
       Fun(Value, State)
+  end.
+
+%% @private
+validator_option(Option, State, Default) ->
+  jesse_state:validator_option(Option, State, Default).
+
+%% @private
+set_value(PropertyName, Value, State) ->
+  Path = lists:reverse([PropertyName] ++ jesse_state:get_current_path(State)),
+  jesse_state:set_value(State, Path, Value).
+
+%% @private
+check_default_for_type(Default, State) ->
+  validator_option('use_defaults', State, false)
+    andalso (not jesse_lib:is_json_object(Default)
+             orelse validator_option( 'apply_defaults_to_empty_objects'
+                                    , State
+                                    , false
+                                    )
+             orelse not jesse_lib:is_json_object_empty(Default)).
+
+%% @private
+check_default(PropertyName, PropertySchema, Default, State) ->
+  Type = get_value(?TYPE, PropertySchema, ?not_found),
+  case is_valid_default(Type, Default, State) of
+    true ->
+      set_default(PropertyName, PropertySchema, Default, State);
+    false ->
+      State
+  end.
+
+%% @private
+is_valid_default(?not_found, _Default, _State) ->
+  false;
+is_valid_default(Type, Default, State)
+  when is_binary(Type) ->
+  check_default_for_type(Default, State)
+    andalso is_type_valid(Default, Type, State);
+is_valid_default(Types, Default, State)
+  when is_list(Types) ->
+  check_default_for_type(Default, State)
+    andalso lists:any( fun(Type) ->
+                           is_type_valid(Default, Type, State)
+                       end
+                     , Types
+                     );
+is_valid_default(_, _Default, _State) -> false.
+
+%% @private
+set_default(PropertyName, PropertySchema, Default, State) ->
+  State1 = set_value(PropertyName, Default, State),
+  State2 = add_to_path(State1, PropertyName),
+  case validate_schema(Default, PropertySchema, State2) of
+    {true, State4} ->
+      jesse_state:remove_last_from_path(State4);
+    _ ->
+      State
+  end.
+
+%% @doc Validate a value against a schema in a given state.
+%% Used by all combinators to run validation on a schema.
+%% @private
+validate_schema(Value, Schema, State0) ->
+  try
+    case jesse_lib:is_json_object(Schema) of
+      true ->
+        State1 = set_current_schema(State0, Schema),
+        State2 = jesse_schema_validator:validate_with_state( Schema
+                                                           , Value
+                                                           , State1
+                                                           ),
+        {true, State2};
+      false ->
+        handle_schema_invalid(?schema_invalid, State0)
+    end
+  catch
+    throw:Errors -> {false, Errors}
   end.
