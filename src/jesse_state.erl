@@ -163,9 +163,6 @@ new(JsonSchema, Options) ->
                                     , Options
                                     , ?default_error_handler_fun
                                     ),
-  ExternalValidator = proplists:get_value( external_validator
-                                         , Options
-                                         ),
   LoaderFun = proplists:get_value( schema_loader_fun
                                  , Options
                                  , ?default_schema_loader_fun

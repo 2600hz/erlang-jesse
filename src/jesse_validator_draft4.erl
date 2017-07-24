@@ -1239,6 +1239,7 @@ validate_ref(Value, Reference, State) ->
 %% The "id" keyword is taken care of behind the scenes in jesse_state.
 %% @private
 resolve_ref(Reference, State) ->
+  CurrentErrors = jesse_state:get_error_list(State),
   NewState = jesse_state:resolve_ref(State, Reference),
   NewErrors = jesse_state:get_error_list(NewState),
   case length(CurrentErrors) =:= length(NewErrors) of

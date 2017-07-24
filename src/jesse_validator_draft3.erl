@@ -928,7 +928,7 @@ validate_ref(Value, Reference, State) ->
 resolve_ref(Reference, State) ->
   CurrentErrors = jesse_state:get_error_list(State),
   NewState = jesse_state:resolve_ref(State, Reference),
-  NewErrors = jesse_state:get_error_list(NewState),  
+  NewErrors = jesse_state:get_error_list(NewState),
   case length(CurrentErrors) =:= length(NewErrors) of
     true ->
       Schema = get_current_schema(NewState),
@@ -1115,5 +1115,4 @@ validate_schema(Value, Schema, State0) ->
     end
   catch
     throw:Errors -> {false, Errors}
-                      >>>>>>> set default values for properties
   end.
