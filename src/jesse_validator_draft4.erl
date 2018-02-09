@@ -90,7 +90,7 @@ check_value(Value, [{?PROPERTIES, Properties} | Attrs], State) ->
                                         );
                false -> State
              end,
-  check_value(Value, Attrs, NewState);
+  check_value(jesse_state:get_current_path_value(NewState), Attrs, NewState);
 check_value( Value
            , [{?PATTERNPROPERTIES, PatternProperties} | Attrs]
            , State
@@ -120,7 +120,7 @@ check_value(Value, [{?ITEMS, Items} | Attrs], State) ->
                true  -> check_items(Value, Items, State);
                false -> State
              end,
-  check_value(Value, Attrs, NewState);
+  check_value(jesse_state:get_current_path_value(NewState), Attrs, NewState);
 %% doesn't really do anything, since this attribute will be handled
 %% by the previous function clause if it's presented in the schema
 check_value( Value
@@ -536,16 +536,13 @@ filter_extra_names(Pattern, ExtraNames) ->
 %%
 %% @private
 check_items(Value, Items, State) ->
+  CurrentPath = get_current_path(State),
   case jesse_lib:is_json_object(Items) of
     true ->
       {_, TmpState} = lists:foldl( fun(Item, {Index, CurrentState}) ->
-                                       { Index + 1
-                                       , check_value( Index
-                                                    , Item
-                                                    , Items
-                                                    , CurrentState
-                                                    )
-                                       }
+                                       ItemState = add_to_path(CurrentState, Index),
+                                       NewItemState = jesse_schema_validator:validate_with_state(Items, Item, ItemState),
+                                       {Index + 1, set_current_path(set_current_schema(NewItemState, Items), CurrentPath)}
                                    end
                                  , {0, set_current_schema(State, Items)}
                                  , Value
@@ -1352,6 +1349,14 @@ add_to_path(State, Property) ->
 %% @private
 remove_last_from_path(State) ->
   jesse_state:remove_last_from_path(State).
+
+%% @private
+get_current_path(State) ->
+  jesse_state:get_current_path(State).
+
+%% @private
+set_current_path(State, Path) ->
+  jesse_state:set_current_path(State, Path).
 
 %% @private
 valid_datetime(DateTimeBin) ->

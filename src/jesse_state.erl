@@ -29,6 +29,7 @@
         , get_extra_validator/1
         , get_current_value/1
         , get_current_path/1
+        , get_current_path_value/1
         , get_current_schema/1
         , get_current_schema_id/1
         , get_default_schema_ver/1
@@ -38,6 +39,7 @@
         , remove_last_from_path/1
         , set_allowed_errors/2
         , set_current_schema/2
+        , set_current_path/2
         , set_value/3
         , set_error_list/2
         , resolve_ref/2
@@ -108,6 +110,11 @@ get_allowed_errors(#state{allowed_errors = AllowedErrors}) ->
 -spec get_current_path(State :: state()) -> [binary() | non_neg_integer()].
 get_current_path(#state{current_path = CurrentPath}) ->
   CurrentPath.
+
+%% @doc Setter for `current_path'.
+-spec set_current_path(State :: state(), Path :: [binary() | non_neg_integer()]) -> state().
+set_current_path(#state{} = State, Path) ->
+  State#state{current_path = Path}.
 
 %% @doc Getter for `current_schema'.
 -spec get_current_schema(State :: state()) -> jesse:json_term().
@@ -424,6 +431,13 @@ load_schema(#state{schema_loader_fun = LoaderFun}, SchemaURI) ->
 %% @doc Getter for `current_value'.
 -spec get_current_value(State :: state()) -> jesse:json_term().
 get_current_value(#state{current_value = Value}) -> Value.
+
+%% @doc Getter for `current_value' within 'current_path'.
+-spec get_current_path_value(State :: state()) -> jesse:json_term().
+get_current_path_value(#state{current_value = Value, current_path = []}) ->
+    Value;
+get_current_path_value(#state{current_value = Value, current_path = Path}) ->
+    jesse_json_path:path(lists:reverse(Path), Value).
 
 -spec set_value(State :: state(), jesse:path(), jesse:json_term()) -> state().
 set_value(#state{setter_fun=undefined}=State, _Path, _Value) -> State;

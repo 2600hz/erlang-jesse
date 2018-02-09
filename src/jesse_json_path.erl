@@ -22,7 +22,7 @@
 -type elem_key_type() :: atom | binary | string | undefined.
 -type elem_type() :: list | elem_key_type().
 -type kvc_obj() :: kvc_obj_node() | [kvc_obj_node()] | list().
--type kvc_key() :: binary() | atom() | string().
+-type kvc_key() :: binary() | atom() | string() | integer().
 -type proplist() :: [{kvc_key(), kvc_obj()}].
 
 -export_type([proplist/0, kvc_key/0, kvc_obj/0]).
@@ -44,8 +44,6 @@ path(Path, P, Default) when is_binary(Path) ->
   path(binary:split(Path, <<".">>, [global]), P, Default);
 path(Path, P, Default) when is_atom(Path) ->
   path(atom_to_binary(Path, utf8), P, Default);
-path(Path=[N | _], P, Default) when is_integer(N) ->
-  path(iolist_to_binary(Path), P, Default);
 path([], [], Default) ->
   Default;
 path([], P, _Default) ->
@@ -57,6 +55,11 @@ path([K | Rest], P, Default) ->
 -spec value(kvc_key(), kvc_obj(), term()) -> term().
 value(K, P, Default) ->
   case proplist_type(P) of
+    {Nested, list} when is_integer(K) ->
+      case K + 1 > length(Nested) of
+          true -> Default;
+          false -> lists:nth(K + 1, Nested)
+      end;
     {Nested, list} ->
       R = make_ref(),
       case get_nested_values(K, Nested, R) of
@@ -289,6 +292,8 @@ normalize(K, string) when is_binary(K) ->
 normalize(K, string) when is_atom(K) ->
   atom_to_list(K);
 normalize(K, undefined) ->
+  K;
+normalize(K, _) ->
   K.
 
 -spec parse_json_pointer_token(Token :: string()) -> binary().
