@@ -31,6 +31,7 @@
 -include("jesse_schema_validator.hrl").
 
 -type schema_error() :: ?only_ref_allowed
+                      | ?schema_invalid
                       | ?wrong_type_dependency
                       | ?wrong_type_items.
 
