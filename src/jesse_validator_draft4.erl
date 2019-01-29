@@ -121,7 +121,7 @@ check_value( Value
                                                    , State
                                                    );
                false -> State
-       end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?ITEMS, Items} | Attrs], State) ->
   NewState = case jesse_lib:is_array(Value) of
@@ -212,7 +212,7 @@ check_value(Value, [{?MINLENGTH, MinLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
                true  -> check_min_length(Value, MinLength, State);
                false -> State
-  end,
+             end,
   check_value(Value, Attrs, NewState);
 check_value(Value, [{?MAXLENGTH, MaxLength} | Attrs], State) ->
   NewState = case is_binary(Value) of
@@ -379,12 +379,36 @@ wrong_type(Value, State) ->
 %%   empty.
 %%
 %% @private
+%% check_properties(Value, Properties, State) ->
+%%   TmpState
+%%     = lists:foldl( fun({PropertyName, PropertySchema}, CurrentState) ->
+%%                        case get_value(PropertyName, Value) of
+%%                          ?not_found ->
+%%                            CurrentState;
+%%                          Property ->
+%%                            NewState = set_current_schema( CurrentState
+%%                                                         , PropertySchema
+%%                                                         ),
+%%                            check_value( PropertyName
+%%                                       , Property
+%%                                       , PropertySchema
+%%                                       , NewState
+%%                                       )
+%%                        end
+%%                    end
+%%                  , State
+%%                  , Properties
+%%                  ),
+%%   set_current_schema(TmpState, get_current_schema(State)).
 check_properties(Value, Properties, State) ->
   TmpState
     = lists:foldl( fun({PropertyName, PropertySchema}, CurrentState) ->
                        case get_value(PropertyName, Value) of
                          ?not_found ->
-                           CurrentState;
+                           case get_value(?DEFAULT, PropertySchema) of
+                             ?not_found -> CurrentState;
+                             Default -> check_default(PropertyName, PropertySchema, Default, CurrentState)
+                           end;
                          Property ->
                            NewState = set_current_schema( CurrentState
                                                         , PropertySchema
@@ -588,12 +612,12 @@ check_items_array(Value, Items, State) ->
 %% @private
 check_items_fun(Tuples, State) ->
   {_, TmpState} = lists:foldl( fun({Item, Schema}, {Index, CurrentState}) ->
-                                 NewState = set_current_schema( CurrentState
-                                                              , Schema
-                                                              ),
-                                 { Index + 1
-                                 , check_value(Index, Item, Schema, NewState)
-                                 }
+                                   NewState = set_current_schema( CurrentState
+                                                                , Schema
+                                                                ),
+                                   { Index + 1
+                                   , check_value(Index, Item, Schema, NewState)
+                                   }
                                end
                              , {0, State}
                              , Tuples
@@ -672,19 +696,19 @@ check_dependency(Value, Dependency, State)
       State
   end;
 check_dependency(_Value, _Dependency, State) ->
-    handle_schema_invalid(?invalid_dependency, State).
+  handle_schema_invalid(?invalid_dependency, State).
 
 %% @private
 check_dependency_array(Value, DependencyName, Dependency, State) ->
   lists:foldl( fun(PropertyName, CurrentState) ->
                    case get_value(DependencyName, Value) of
-                       ?not_found ->
-                         CurrentState;
-                       _Exists ->
-                         check_dependency( Value
-                                         , PropertyName
-                                         , CurrentState
-                                         )
+                     ?not_found ->
+                       CurrentState;
+                     _Exists ->
+                       check_dependency( Value
+                                       , PropertyName
+                                       , CurrentState
+                                       )
                    end
                end
              , State
@@ -962,28 +986,28 @@ check_format(Value, _Format = <<"date-time">>, State) when is_binary(Value) ->
 check_format(Value, _Format = <<"email">>, State) when is_binary(Value) ->
   case re:run(Value, <<"^[^@]+@[^@]+$">>, [{capture, none}, unicode]) of
     match   -> State;
-    nomatch -> handle_data_invalid(?wrong_format, Value, State)
-  end;
-check_format(Value, _Format = <<"hostname">>, State) when is_binary(Value) ->
+                       nomatch -> handle_data_invalid(?wrong_format, Value, State)
+                     end;
+                       check_format(Value, _Format = <<"hostname">>, State) when is_binary(Value) ->
   %% not yet supported
-  State;
-check_format(Value, _Format = <<"ipv4">>, State) when is_binary(Value) ->
+                         State;
+                       check_format(Value, _Format = <<"ipv4">>, State) when is_binary(Value) ->
   %% avoiding inet:parse_ipv4strict_address to maintain R15 compatibility
-  case inet_parse:ipv4strict_address(binary_to_list(Value)) of
-    {ok, _IPv4Address} -> State;
-    {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
-  end;
-check_format(Value, _Format = <<"ipv6">>, State) when is_binary(Value) ->
+                         case inet_parse:ipv4strict_address(binary_to_list(Value)) of
+                           {ok, _IPv4Address} -> State;
+                           {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
+                         end;
+                       check_format(Value, _Format = <<"ipv6">>, State) when is_binary(Value) ->
   %% avoiding inet:parse_ipv6strict_address to maintain R15 compatibility
-  case inet_parse:ipv6strict_address(binary_to_list(Value)) of
-    {ok, _IPv6Address} -> State;
-    {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
-  end;
-check_format(Value, _Format = <<"uri">>, State) when is_binary(Value) ->
+                         case inet_parse:ipv6strict_address(binary_to_list(Value)) of
+                           {ok, _IPv6Address} -> State;
+                           {error, einval}    -> handle_data_invalid(?wrong_format, Value, State)
+                         end;
+                       check_format(Value, _Format = <<"uri">>, State) when is_binary(Value) ->
   %% not yet supported
-  State;
-check_format(_Value, _Format, State) ->
-  State.
+                         State;
+                       check_format(_Value, _Format, State) ->
+                         State.
 
 %% @doc 5.1.1. multipleOf
 %%
@@ -1054,10 +1078,10 @@ check_required_values(Value, [PropertyName | Required], State) ->
 %% @private
 check_max_properties(Value, MaxProperties, State)
   when is_integer(MaxProperties), MaxProperties >= 0 ->
-    case length(unwrap(Value)) =< MaxProperties of
-      true  -> State;
-      false -> handle_data_invalid(?too_many_properties, Value, State)
-    end;
+  case length(unwrap(Value)) =< MaxProperties of
+    true  -> State;
+    false -> handle_data_invalid(?too_many_properties, Value, State)
+  end;
 check_max_properties(_Value, _MaxProperties, State) ->
   handle_schema_invalid(?wrong_max_properties, State).
 
@@ -1081,10 +1105,10 @@ check_max_properties(_Value, _MaxProperties, State) ->
 %% @private
 check_min_properties(Value, MinProperties, State)
   when is_integer(MinProperties), MinProperties >= 0 ->
-    case length(unwrap(Value)) >= MinProperties of
-      true  -> State;
-      false -> handle_data_invalid(?too_few_properties, Value, State)
-    end;
+  case length(unwrap(Value)) >= MinProperties of
+    true  -> State;
+    false -> handle_data_invalid(?too_few_properties, Value, State)
+  end;
 check_min_properties(_Value, _MaxProperties, State) ->
   handle_schema_invalid(?wrong_min_properties, State).
 
@@ -1340,6 +1364,9 @@ compare_properties(Value1, Value2) ->
 get_value(Key, Schema) ->
   jesse_json_path:value(Key, Schema, ?not_found).
 
+get_value(Key, Schema, Default) ->
+  jesse_json_path:value(Key, Schema, Default).
+
 %% @private
 unwrap(Value) ->
   jesse_json_path:unwrap_value(Value).
@@ -1406,3 +1433,41 @@ shortest(X, Y) when length(X) < length(Y) ->
   X;
 shortest(_, Y) ->
   Y.
+
+set_value(PropertyName, Value, State) ->
+  Path = lists:reverse([PropertyName] ++ jesse_state:get_current_path(State)),
+  jesse_state:set_value(State, Path, Value).
+
+check_default_for_type(Default, State) ->
+  jesse_state:validator_option('use_defaults', State, false)
+    andalso (not jesse_lib:is_json_object(Default)
+             orelse jesse_state:validator_option('apply_defaults_to_empty_objects', State, false)
+             orelse not jesse_lib:is_json_object_empty(Default)).
+
+%% @private
+check_default(PropertyName, PropertySchema, Default, State) ->
+  Type = get_value(?TYPE, PropertySchema, ?not_found),
+  case is_valid_default(Type, Default, State) of
+    true -> set_default(PropertyName, PropertySchema, Default, State);
+    false -> State
+  end.
+
+is_valid_default(?not_found, _Default, _State) -> false;
+is_valid_default(Type, Default, State)
+  when is_binary(Type) ->
+  check_default_for_type(Default, State)
+    andalso is_type_valid(Default, Type);
+is_valid_default(Types, Default, State)
+  when is_list(Types) ->
+  check_default_for_type(Default, State)
+    andalso lists:any(fun(Type) -> is_type_valid(Default, Type) end, Types);
+is_valid_default(_, _Default, _State) -> false.
+
+%% @private
+set_default(PropertyName, PropertySchema, Default, State) ->
+  State1 = set_value(PropertyName, Default, State),
+  State2 = add_to_path(State1, PropertyName),
+  case validate_schema(Default, PropertySchema, State2) of
+    {true, State4} -> jesse_state:remove_last_from_path(State4);
+    _ -> State
+  end.
