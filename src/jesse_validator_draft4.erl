@@ -1208,7 +1208,7 @@ check_one_of(_Value, _InvalidSchemas, State) ->
   handle_schema_invalid(?wrong_one_of_schema_array, State).
 
 check_one_of_(_Value, [], State, 1, _Errors) ->
-  jesse_state:set_error_list(State, []);
+  State;
 check_one_of_(Value, [], State, 0, Errors) ->
   handle_data_invalid({?not_one_schema_valid, Errors}, Value, State);
 check_one_of_(Value, _Schemas, State, Valid, _Errors) when Valid > 1 ->
